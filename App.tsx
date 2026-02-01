@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Home from './views/Home';
@@ -14,7 +15,6 @@ const App: React.FC = () => {
   const [acquisitions, setAcquisitions] = useState<Acquisition[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Carregamento Inicial
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -29,7 +29,8 @@ const App: React.FC = () => {
         ...s,
         categoryId: s.category_id,
         mediaUrl: s.media_url,
-        mediaType: s.media_type
+        mediaType: s.media_type,
+        galleryUrls: s.gallery_urls || []
       })));
       if (cons) setConsultants(cons.map(c => ({
         ...c,
@@ -44,6 +45,7 @@ const App: React.FC = () => {
         clientPhone: a.client_phone,
         clientCpf: a.client_cpf,
         attachmentUrl: a.attachment_url,
+        comment: a.comment,
         timestamp: new Date(a.created_at).getTime(),
         location: a.latitude ? { latitude: a.latitude, longitude: a.longitude } : undefined
       })));
@@ -53,7 +55,6 @@ const App: React.FC = () => {
 
     fetchData();
 
-    // Sincronização em Tempo Real (Opcional, mas recomendado para o Gestor)
     const channel = supabase.channel('schema-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData())
       .subscribe();
@@ -72,7 +73,8 @@ const App: React.FC = () => {
       media_url: site.mediaUrl,
       media_type: site.mediaType,
       category_id: site.categoryId,
-      description: site.description
+      description: site.description,
+      gallery_urls: site.galleryUrls
     }]);
   };
 
@@ -83,7 +85,8 @@ const App: React.FC = () => {
       media_url: site.mediaUrl,
       media_type: site.mediaType,
       category_id: site.categoryId,
-      description: site.description
+      description: site.description,
+      gallery_urls: site.galleryUrls
     }).eq('id', id);
   };
 
@@ -126,12 +129,16 @@ const App: React.FC = () => {
     await supabase.from('acquisitions').update(payload).eq('id', id);
   };
 
+  const deleteAcquisition = async (id: string) => {
+    await supabase.from('acquisitions').delete().eq('id', id);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#001A33]">
         <div className="text-center">
           <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <p className="text-white font-black uppercase tracking-[0.5em] text-xs">Conectando ao TUPÃ CORE...</p>
+          <p className="text-white font-black uppercase tracking-[0.5em] text-xs">Verificando sua internet</p>
         </div>
       </div>
     );
@@ -156,6 +163,7 @@ const App: React.FC = () => {
               onAddConsultant={addConsultant}
               onDeleteConsultant={deleteConsultant}
               onUpdateAcquisition={updateAcquisition}
+              onDeleteAcquisition={deleteAcquisition}
             />
           } 
         />

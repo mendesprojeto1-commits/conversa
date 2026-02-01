@@ -5,8 +5,21 @@ import { DemoSite } from "../types";
 export const getSmartSearchResults = async (query: string, availableSites: DemoSite[]): Promise<string[]> => {
   if (!query.trim()) return availableSites.map(s => s.id);
 
-  // Inicialização dentro da função para segurança em ambientes de navegador (evita crash de process.env)
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  // Verificação ultra-segura para evitar "ReferenceError: process is not defined" no Netlify
+  const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : '';
+  
+  if (!apiKey) {
+    console.warn("API_KEY não encontrada. Usando busca local simplificada.");
+    const lowerQuery = query.toLowerCase();
+    return availableSites
+      .filter(s => 
+        s.title.toLowerCase().includes(lowerQuery) || 
+        s.description.toLowerCase().includes(lowerQuery)
+      )
+      .map(s => s.id);
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const siteListContext = availableSites.map(s => ({
     id: s.id,

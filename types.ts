@@ -1,3 +1,4 @@
+
 export interface Category {
   id: string;
   name: string;
@@ -11,6 +12,7 @@ export interface DemoSite {
   mediaType: 'image' | 'video';
   categoryId: string;
   description: string;
+  galleryUrls?: string[]; // Novo campo para múltiplas fotos
 }
 
 export interface Consultant {
