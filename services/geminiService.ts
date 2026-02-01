@@ -2,10 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DemoSite } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const getSmartSearchResults = async (query: string, availableSites: DemoSite[]): Promise<string[]> => {
   if (!query.trim()) return availableSites.map(s => s.id);
+
+  // Inicialização dentro da função para segurança em ambientes de navegador (evita crash de process.env)
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
   const siteListContext = availableSites.map(s => ({
     id: s.id,
@@ -20,7 +21,6 @@ export const getSmartSearchResults = async (query: string, availableSites: DemoS
       Available items: ${JSON.stringify(siteListContext)}.
       Analyze the user query. It might contain typos or be written slightly wrong. 
       Return the IDs of the items that most closely match the user's intent. 
-      If the user query is clearly a typo of a specific word (e.g., 'porfolio' instead of 'portfolio'), correct it mentally and find the best matches.
       Only return a JSON array of strings containing the IDs.`,
       config: {
         responseMimeType: "application/json",
@@ -37,7 +37,6 @@ export const getSmartSearchResults = async (query: string, availableSites: DemoS
     return Array.isArray(result) ? result : [];
   } catch (error) {
     console.error("Gemini smart search failed:", error);
-    // Fallback to simple local fuzzy filter if AI fails
     const lowerQuery = query.toLowerCase();
     return availableSites
       .filter(s => 
