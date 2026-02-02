@@ -5,11 +5,16 @@ import { DemoSite } from "../types";
 export const getSmartSearchResults = async (query: string, availableSites: DemoSite[]): Promise<string[]> => {
   if (!query.trim()) return availableSites.map(s => s.id);
 
-  // Verificação ultra-segura para evitar "ReferenceError: process is not defined" no Netlify
-  const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : '';
+  // Verificação robusta para evitar erro de referência "process is not defined"
+  let apiKey = '';
+  try {
+    apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.API_KEY : '') || '';
+  } catch (e) {
+    apiKey = '';
+  }
   
   if (!apiKey) {
-    console.warn("API_KEY não encontrada. Usando busca local simplificada.");
+    console.warn("API_KEY não configurada no Netlify. Usando busca local.");
     const lowerQuery = query.toLowerCase();
     return availableSites
       .filter(s => 
@@ -19,22 +24,20 @@ export const getSmartSearchResults = async (query: string, availableSites: DemoS
       .map(s => s.id);
   }
 
-  const ai = new GoogleGenAI({ apiKey });
-
-  const siteListContext = availableSites.map(s => ({
-    id: s.id,
-    title: s.title,
-    description: s.description
-  }));
-
   try {
+    const ai = new GoogleGenAI({ apiKey });
+
+    const siteListContext = availableSites.map(s => ({
+      id: s.id,
+      title: s.title,
+      description: s.description
+    }));
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `User search query: "${query}". 
       Available items: ${JSON.stringify(siteListContext)}.
-      Analyze the user query. It might contain typos or be written slightly wrong. 
-      Return the IDs of the items that most closely match the user's intent. 
-      Only return a JSON array of strings containing the IDs.`,
+      Analyze the user query. Typos might happen. Return a JSON array of IDs that match.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -49,13 +52,10 @@ export const getSmartSearchResults = async (query: string, availableSites: DemoS
     const result = JSON.parse(response.text || "[]");
     return Array.isArray(result) ? result : [];
   } catch (error) {
-    console.error("Gemini smart search failed:", error);
+    console.error("Erro na busca IA:", error);
     const lowerQuery = query.toLowerCase();
     return availableSites
-      .filter(s => 
-        s.title.toLowerCase().includes(lowerQuery) || 
-        s.description.toLowerCase().includes(lowerQuery)
-      )
+      .filter(s => s.title.toLowerCase().includes(lowerQuery))
       .map(s => s.id);
   }
 };
