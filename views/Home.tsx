@@ -52,7 +52,7 @@ const Home: React.FC = () => {
               <div className="w-16 h-16 bg-cyan-600/20 rounded-2xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-500">
                 <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
               </div>
-              <h2 className="text-4xl font-black text-white mb-3 tracking-tighter uppercase">Sites</h2>
+              <h2 className="text-4xl font-black text-white mb-3 tracking-tighter uppercase">Sites Demostração</h2>
               <p className="text-cyan-200/60 text-sm font-medium leading-relaxed px-4">Exploração visual do catálogo completo de demonstrações de alta performance.</p>
               <div className="mt-10 inline-flex items-center text-cyan-400 font-black text-[10px] uppercase tracking-widest border-b border-cyan-400/0 group-hover:border-cyan-400/100 transition-all pb-1">
                 Abrir Catálogo

@@ -13,6 +13,7 @@ interface ManagerProps {
   onUpdateSite: (id: string, site: Omit<DemoSite, 'id'>) => Promise<void>;
   onDeleteSite: (id: string) => Promise<void>;
   onAddConsultant: (consultant: Omit<Consultant, 'id'>) => Promise<void>;
+  onUpdateConsultant: (id: string, consultant: Omit<Consultant, 'id'>) => Promise<void>;
   onDeleteConsultant: (id: string) => Promise<void>;
   onUpdateAcquisition: (id: string, updates: Partial<Acquisition>) => Promise<void>;
   onDeleteAcquisition: (id: string) => Promise<void>;
@@ -28,6 +29,7 @@ const Manager: React.FC<ManagerProps> = ({
   onUpdateSite,
   onDeleteSite,
   onAddConsultant,
+  onUpdateConsultant,
   onDeleteConsultant,
   onUpdateAcquisition,
   onDeleteAcquisition
@@ -36,6 +38,7 @@ const Manager: React.FC<ManagerProps> = ({
   const [activeTab, setActiveTab] = useState<'sites' | 'consultants' | 'sales'>('sites');
   const [catName, setCatName] = useState('');
   const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
+  const [editingConsultantId, setEditingConsultantId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   
@@ -154,9 +157,14 @@ const Manager: React.FC<ManagerProps> = ({
     e.preventDefault();
     if (catName.trim()) {
       setIsSubmitting(true);
-      await onAddCategory(catName);
-      setCatName('');
-      setIsSubmitting(false);
+      try {
+        await onAddCategory(catName);
+        setCatName('');
+      } catch (err: any) {
+        alert("Erro ao adicionar categoria: " + err.message);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -164,40 +172,80 @@ const Manager: React.FC<ManagerProps> = ({
     e.preventDefault();
     if (siteForm.title && siteForm.link && siteForm.categoryId && siteForm.mediaUrl) {
       setIsSubmitting(true);
-      if (editingSiteId) {
-        await onUpdateSite(editingSiteId, siteForm);
-        setEditingSiteId(null);
-      } else {
-        await onAddSite(siteForm);
+      try {
+        if (editingSiteId) {
+          await onUpdateSite(editingSiteId, siteForm);
+          setEditingSiteId(null);
+        } else {
+          await onAddSite(siteForm);
+        }
+        setSiteForm({ title: '', link: '', mediaUrl: '', mediaType: 'image', categoryId: '', description: '', galleryUrls: [], objectPosition: '50% 50%' });
+        if (siteFileRef.current) siteFileRef.current.value = '';
+        if (galleryFileRef.current) galleryFileRef.current.value = '';
+      } catch (err: any) {
+        alert("Erro ao salvar projeto: " + err.message);
+      } finally {
+        setIsSubmitting(false);
       }
-      setSiteForm({ title: '', link: '', mediaUrl: '', mediaType: 'image', categoryId: '', description: '', galleryUrls: [], objectPosition: '50% 50%' });
-      if (siteFileRef.current) siteFileRef.current.value = '';
-      if (galleryFileRef.current) galleryFileRef.current.value = '';
-      setIsSubmitting(false);
     }
   };
 
   const handleConsultantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (consultantForm.name && consultantForm.cpf && consultantForm.photoUrl) {
-      setIsSubmitting(true);
-      await onAddConsultant(consultantForm);
+    if (!consultantForm.name || !consultantForm.cpf || !consultantForm.photoUrl) {
+      alert("⚠️ Preencha Nome, CPF e selecione uma Foto.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (editingConsultantId) {
+        await onUpdateConsultant(editingConsultantId, consultantForm);
+        alert("✅ Cadastro ATUALIZADO com sucesso!");
+        setEditingConsultantId(null);
+      } else {
+        await onAddConsultant(consultantForm);
+        alert("✅ Consultor CADASTRADO com sucesso!");
+      }
+      // Limpa formulário após sucesso
       setConsultantForm({ name: '', cpf: '', photoUrl: '', photoPosition: '50% 50%' });
       if (consultantFileRef.current) consultantFileRef.current.value = '';
+    } catch (err: any) {
+      console.error("Erro no Banco de Dados:", err);
+      // Alerta detalhado para o usuário
+      alert(`❌ FALHA AO SALVAR: ${err.message || 'Erro desconhecido.'}\n\nDica: Verifique se o CPF já existe ou se as tabelas foram criadas no SQL Editor.`);
+    } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const startEditConsultant = (c: Consultant) => {
+    setEditingConsultantId(c.id);
+    setConsultantForm({
+      name: c.name,
+      cpf: c.cpf,
+      photoUrl: c.photoUrl,
+      photoPosition: c.photoPosition || '50% 50%'
+    });
+    // Rola para o topo onde está o formulário
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSaleUpdateSubmit = async () => {
     if (editingSale) {
       setIsSubmitting(true);
-      await onUpdateAcquisition(editingSale.id, {
-        status: saleEditForm.status,
-        comment: saleEditForm.comment,
-        attachmentUrl: saleEditForm.attachmentUrl
-      });
-      setEditingSale(null);
-      setIsSubmitting(false);
+      try {
+        await onUpdateAcquisition(editingSale.id, {
+          status: saleEditForm.status,
+          comment: saleEditForm.comment,
+          attachmentUrl: saleEditForm.attachmentUrl
+        });
+        setEditingSale(null);
+      } catch (err: any) {
+        alert("Erro ao atualizar venda: " + err.message);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -221,75 +269,7 @@ const Manager: React.FC<ManagerProps> = ({
         <div className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-md flex items-center justify-center">
           <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl flex items-center gap-4 animate-pulse">
              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-             <p className="font-black text-xs uppercase tracking-widest text-slate-900">Sincronizando Banco de Dados...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Sale Edit */}
-      {editingSale && (
-        <div className="fixed inset-0 z-[800] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 animate-[fadeIn_0.3s]">
-          <div className="bg-white w-full max-w-xl rounded-[3rem] p-10 shadow-2xl animate-[scaleUp_0.3s] max-h-[90vh] overflow-y-auto">
-            <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase mb-2">Atualizar Venda</h3>
-            <p className="text-blue-500 font-black text-[10px] uppercase tracking-widest mb-8">Cliente: {editingSale.clientName}</p>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Status do Pedido</label>
-                <select 
-                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-bold focus:border-blue-600 outline-none uppercase text-xs"
-                  value={saleEditForm.status}
-                  onChange={(e) => setSaleEditForm({...saleEditForm, status: e.target.value as AcquisitionStatus})}
-                >
-                  <option value="pending">Aguardando Aprovação</option>
-                  <option value="processing">Em Produção / Processamento</option>
-                  <option value="done">Concluído / Entregue</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Comentários Internos</label>
-                <textarea 
-                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-bold focus:border-blue-600 outline-none min-h-[120px]"
-                  placeholder="Notas sobre a negociação..."
-                  value={saleEditForm.comment}
-                  onChange={(e) => setSaleEditForm({...saleEditForm, comment: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Anexo de Comprovante (Opcional)</label>
-                <input type="file" className="hidden" ref={saleFileRef} onChange={handleSaleFileChange} />
-                <div 
-                  onClick={() => saleFileRef.current?.click()}
-                  className="border-4 border-dashed border-slate-100 p-8 rounded-2xl text-center cursor-pointer hover:bg-slate-50 transition-all bg-slate-50/50"
-                >
-                  {saleEditForm.attachmentUrl ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <img src={saleEditForm.attachmentUrl} className="h-16 w-16 object-cover rounded-lg shadow-md" />
-                      <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Trocar Anexo</span>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-black text-slate-300 uppercase tracking-widest">Clique para subir arquivo</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button 
-                  onClick={() => setEditingSale(null)}
-                  className="flex-1 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleSaleUpdateSubmit}
-                  className="flex-[2] py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-100"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </div>
+             <p className="font-black text-xs uppercase tracking-widest text-slate-900">Comunicando com o Banco...</p>
           </div>
         </div>
       )}
@@ -314,7 +294,7 @@ const Manager: React.FC<ManagerProps> = ({
           ].map((tab) => (
             <button 
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => { setActiveTab(tab.id as any); setEditingConsultantId(null); setConsultantForm({ name: '', cpf: '', photoUrl: '', photoPosition: '50% 50%' }); }}
               className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-2xl scale-105' : 'bg-white text-slate-400 border border-slate-200 hover:border-blue-200 hover:bg-slate-50'}`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={tab.icon}/></svg>
@@ -322,6 +302,164 @@ const Manager: React.FC<ManagerProps> = ({
             </button>
           ))}
         </nav>
+
+        {activeTab === 'consultants' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+             <section className={`p-10 rounded-[3rem] shadow-sm border h-fit transition-all duration-500 ${editingConsultantId ? 'bg-blue-50 border-blue-200 ring-4 ring-blue-500/10' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className={`text-2xl font-black tracking-tight uppercase ${editingConsultantId ? 'text-blue-600' : 'text-slate-900'}`}>
+                    {editingConsultantId ? 'Editando Consultor' : 'Novo Credenciamento'}
+                  </h2>
+                  {editingConsultantId && (
+                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest animate-pulse">Modo Edição Ativo</span>
+                  )}
+                </div>
+
+                <form onSubmit={handleConsultantSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Nome Completo</label>
+                    <input type="text" placeholder="Nome do Consultor" className="w-full px-8 py-5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.name} onChange={(e) => setConsultantForm({ ...consultantForm, name: e.target.value })} />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">CPF (Somente Números)</label>
+                    <input type="text" placeholder="00000000000" className="w-full px-8 py-5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.cpf} onChange={(e) => setConsultantForm({ ...consultantForm, cpf: e.target.value.replace(/\D/g,'') })} />
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Foto de Identificação (Clique na prévia para ajustar o foco)</label>
+                    <input type="file" accept="image/*" className="hidden" ref={consultantFileRef} onChange={handleConsultantFileChange} />
+                    
+                    <div onClick={() => !consultantForm.photoUrl && consultantFileRef.current?.click()} className={`border-4 border-dashed p-8 rounded-[2.5rem] text-center cursor-pointer transition-all ${consultantForm.photoUrl ? 'bg-white border-slate-100' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
+                      {consultantForm.photoUrl ? (
+                        <div className="space-y-6">
+                          <div 
+                            ref={consultantDragRef}
+                            className="w-48 h-48 rounded-full mx-auto border-4 border-slate-100 shadow-2xl overflow-hidden relative cursor-crosshair select-none group/photo"
+                            onMouseDown={() => setIsDraggingConsultantFocus(true)}
+                            onMouseUp={() => setIsDraggingConsultantFocus(false)}
+                            onMouseLeave={() => setIsDraggingConsultantFocus(false)}
+                            onMouseMove={(e) => isDraggingConsultantFocus && handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
+                            onTouchStart={() => setIsDraggingConsultantFocus(true)}
+                            onTouchEnd={() => setIsDraggingConsultantFocus(false)}
+                            onTouchMove={(e) => isDraggingConsultantFocus && handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
+                            onClick={(e) => handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
+                          >
+                            <img 
+                              src={consultantForm.photoUrl} 
+                              className="w-full h-full object-cover pointer-events-none" 
+                              style={{ objectPosition: consultantForm.photoPosition }} 
+                            />
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-white font-black text-[8px] uppercase">Arraste para ajustar</span>
+                            </div>
+                            <div 
+                              className="absolute w-6 h-6 -ml-3 -mt-3 border-2 border-white rounded-full bg-blue-500/50 backdrop-blur-sm pointer-events-none"
+                              style={{ 
+                                left: consultantForm.photoPosition.split(' ')[0], 
+                                top: consultantForm.photoPosition.split(' ')[1] 
+                              }}
+                            />
+                          </div>
+                          <button type="button" onClick={() => consultantFileRef.current?.click()} className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline">Trocar Imagem</button>
+                        </div>
+                      ) : (
+                        <div className="py-4">
+                           <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enviar Foto</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                    {editingConsultantId && (
+                      <button 
+                        type="button" 
+                        onClick={() => { setEditingConsultantId(null); setConsultantForm({ name: '', cpf: '', photoUrl: '', photoPosition: '50% 50%' }); }} 
+                        className="flex-1 bg-slate-200 text-slate-500 py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-300 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                    <button type="submit" disabled={isSubmitting} className={`flex-[2] py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl transition-all disabled:opacity-50 active:scale-95 ${editingConsultantId ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>
+                      {isSubmitting ? 'Processando...' : (editingConsultantId ? 'Atualizar Dados' : 'Finalizar Credenciamento')}
+                    </button>
+                  </div>
+                </form>
+             </section>
+
+             <div className="space-y-6 overflow-y-auto max-h-[800px] pr-2 scrollbar-hide">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Consultores Ativos ({consultants.length})</h3>
+                {consultants.length === 0 && (
+                  <div className="p-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                    <p className="text-slate-300 font-bold uppercase text-xs">Nenhum consultor encontrado.</p>
+                  </div>
+                )}
+                {consultants.map(c => (
+                  <div key={c.id} className={`p-8 bg-white rounded-[3rem] border shadow-sm transition-all hover:shadow-2xl group relative overflow-hidden ${editingConsultantId === c.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-100'}`}>
+                    <div className="flex items-center gap-6 mb-8">
+                      <div className="w-20 h-20 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-50 relative">
+                        <img src={c.photoUrl} className="w-full h-full object-cover" style={{ objectPosition: c.photoPosition }} />
+                        <button 
+                          onClick={() => startEditConsultant(c)}
+                          className="absolute inset-0 bg-blue-600/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
+                          title="Clique para Editar"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-black text-slate-900 uppercase tracking-tighter text-2xl leading-none mb-1">{c.name}</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Matrícula CPF: {c.cpf}</p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          onClick={() => startEditConsultant(c)} 
+                          className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                          title="Editar Cadastro"
+                        >
+                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                        <button 
+                          onClick={() => { if(confirm('Excluir este consultor permanentemente?')) onDeleteConsultant(c.id).catch(e => alert(e.message)); }} 
+                          className="p-3 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                          title="Remover Consultor"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => handleCopyLink(c.id)}
+                        className={`py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${copyStatus === c.id ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 shadow-sm'}`}
+                      >
+                        {copyStatus === c.id ? (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
+                            Copiado
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                            Link Público
+                          </>
+                        )}
+                      </button>
+                      <button 
+                        onClick={() => navigate(`/consultant/${c.id}`)}
+                        className="py-4 bg-slate-900 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:bg-blue-600 transition-all"
+                      >
+                        Abrir Perfil
+                      </button>
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </div>
+        )}
 
         {activeTab === 'sites' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -488,102 +626,6 @@ const Manager: React.FC<ManagerProps> = ({
           </div>
         )}
 
-        {activeTab === 'consultants' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-             <section className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 h-fit">
-                <h2 className="text-2xl font-black mb-8 text-slate-900 tracking-tight uppercase">Novo Consultor</h2>
-                <form onSubmit={handleConsultantSubmit} className="space-y-6">
-                  <input type="text" placeholder="Nome do Consultor" className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.name} onChange={(e) => setConsultantForm({ ...consultantForm, name: e.target.value })} />
-                  <input type="text" placeholder="CPF" className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.cpf} onChange={(e) => setConsultantForm({ ...consultantForm, cpf: e.target.value })} />
-                  
-                  <div className="space-y-4">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Foto de Identificação & Foco (Arraste para ajustar)</label>
-                    <input type="file" accept="image/*" className="hidden" ref={consultantFileRef} onChange={handleConsultantFileChange} />
-                    
-                    <div onClick={() => !consultantForm.photoUrl && consultantFileRef.current?.click()} className={`border-4 border-dashed border-slate-100 p-8 rounded-[2.5rem] text-center cursor-pointer transition-all ${consultantForm.photoUrl ? 'bg-white' : 'bg-slate-50/50 hover:bg-slate-100'}`}>
-                      {consultantForm.photoUrl ? (
-                        <div className="space-y-6">
-                          <div 
-                            ref={consultantDragRef}
-                            className="w-48 h-48 rounded-full mx-auto border-4 border-slate-100 shadow-2xl overflow-hidden relative cursor-crosshair select-none"
-                            onMouseDown={() => setIsDraggingConsultantFocus(true)}
-                            onMouseUp={() => setIsDraggingConsultantFocus(false)}
-                            onMouseLeave={() => setIsDraggingConsultantFocus(false)}
-                            onMouseMove={(e) => isDraggingConsultantFocus && handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
-                            onTouchStart={() => setIsDraggingConsultantFocus(true)}
-                            onTouchEnd={() => setIsDraggingConsultantFocus(false)}
-                            onTouchMove={(e) => isDraggingConsultantFocus && handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
-                            onClick={(e) => handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
-                          >
-                            <img 
-                              src={consultantForm.photoUrl} 
-                              className="w-full h-full object-cover pointer-events-none" 
-                              style={{ objectPosition: consultantForm.photoPosition }} 
-                            />
-                            <div 
-                              className="absolute w-6 h-6 -ml-3 -mt-3 border-2 border-white rounded-full bg-blue-500/50 backdrop-blur-sm pointer-events-none"
-                              style={{ 
-                                left: consultantForm.photoPosition.split(' ')[0], 
-                                top: consultantForm.photoPosition.split(' ')[1] 
-                              }}
-                            />
-                          </div>
-                          <button type="button" onClick={() => consultantFileRef.current?.click()} className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline">Trocar Foto</button>
-                        </div>
-                      ) : (
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clique para subir foto</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-xl hover:bg-blue-600 transition-all">Salvar Credenciamento</button>
-                </form>
-             </section>
-
-             <div className="space-y-6">
-                {consultants.map(c => (
-                  <div key={c.id} className="p-8 bg-white rounded-[3rem] border border-slate-100 shadow-sm transition-all hover:shadow-2xl group relative overflow-hidden">
-                    <div className="flex items-center gap-6 mb-8">
-                      <div className="w-20 h-20 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-50">
-                        <img src={c.photoUrl} className="w-full h-full object-cover" style={{ objectPosition: c.photoPosition }} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-black text-slate-900 uppercase tracking-tighter text-2xl leading-none mb-1">{c.name}</p>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">ID: {c.cpf}</p>
-                      </div>
-                      <button onClick={() => { if(confirm('Excluir consultor?')) onDeleteConsultant(c.id); }} className="p-3 text-red-200 hover:text-red-500 transition-colors"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <button 
-                        onClick={() => handleCopyLink(c.id)}
-                        className={`py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${copyStatus === c.id ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                      >
-                        {copyStatus === c.id ? (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
-                            Copiado
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                            Copiar Link Público
-                          </>
-                        )}
-                      </button>
-                      <button 
-                        onClick={() => navigate(`/consultant/${c.id}`)}
-                        className="py-4 bg-blue-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:shadow-blue-100 active:scale-95 transition-all"
-                      >
-                        Visualizar Painel
-                      </button>
-                    </div>
-                  </div>
-                ))}
-             </div>
-          </div>
-        )}
-
         {activeTab === 'sales' && (
           <div className="space-y-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -706,7 +748,7 @@ const Manager: React.FC<ManagerProps> = ({
                         </button>
                         <button 
                           onClick={() => {
-                            if(confirm(`Excluir permanentemente o registro de ${acq.clientName}?`)) onDeleteAcquisition(acq.id);
+                            if(confirm(`Excluir permanentemente o registro de ${acq.clientName}?`)) onDeleteAcquisition(acq.id).catch(e => alert(e.message));
                           }}
                           className="py-3 bg-white border border-slate-200 text-slate-400 hover:text-red-600 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all"
                         >

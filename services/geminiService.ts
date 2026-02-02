@@ -1,20 +1,20 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { DemoSite } from "../types";
+import { DemoSite } from "../types.ts";
 
 export const getSmartSearchResults = async (query: string, availableSites: DemoSite[]): Promise<string[]> => {
   if (!query.trim()) return availableSites.map(s => s.id);
 
-  // Verificação robusta para evitar erro de referência "process is not defined"
   let apiKey = '';
   try {
-    apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.API_KEY : '') || '';
+    // Tenta obter a chave de várias formas seguras para o navegador
+    apiKey = (window as any).process?.env?.API_KEY || '';
   } catch (e) {
     apiKey = '';
   }
   
   if (!apiKey) {
-    console.warn("API_KEY não configurada no Netlify. Usando busca local.");
+    console.warn("API_KEY não encontrada nas variáveis de ambiente. Usando filtro local.");
     const lowerQuery = query.toLowerCase();
     return availableSites
       .filter(s => 
