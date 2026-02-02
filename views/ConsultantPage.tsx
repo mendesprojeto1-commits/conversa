@@ -97,10 +97,10 @@ const GalleryViewer: React.FC<{
   );
 };
 
-// Verified Badge
+// Verified Badge posicionado na borda da foto
 const VerifiedBadge = () => (
-  <div className="relative inline-flex items-center justify-center ml-4 animate-[pulse-gold_2s_infinite]">
-    <svg className="w-8 h-8 md:w-10 md:h-10 drop-shadow-lg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <div className="absolute bottom-4 right-4 translate-x-1/4 translate-y-1/4 z-30 animate-[pulse-gold_2s_infinite]">
+    <svg className="w-12 h-12 md:w-16 md:h-16 drop-shadow-[0_0_15px_rgba(0,149,246,0.5)]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 2L14.5 4.5L18 5L18.5 8.5L21 11L19.5 14L20 17.5L17 19L15 22L12 21L9 22L7 19L4 17.5L4.5 14L3 11L5.5 8.5L6 5L9.5 4.5L12 2Z" fill="#0095F6" />
       <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -186,7 +186,7 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
   const [selectedSite, setSelectedSite] = useState<DemoSite | null>(null);
   const [formData, setFormData] = useState({ name: '', phone: '', cpf: '' });
 
-  // Detecção de gênero (ajuste gramatical brasileiro comum para nomes terminados em 'a')
+  // Detecção de gênero
   const isFemale = useMemo(() => {
     if (!consultant) return false;
     const firstName = consultant.name.trim().split(' ')[0].toLowerCase();
@@ -198,7 +198,7 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [consultant, navigate]);
 
-  // Animação de digitação para o placeholder
+  // Animação de digitação
   useEffect(() => {
     let i = 0;
     const interval = setInterval(() => {
@@ -297,11 +297,11 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
         }
         .avatar-aura {
           position: absolute;
-          inset: -4px;
+          inset: -6px;
           border-radius: 50%;
           background: conic-gradient(from 0deg, transparent, #bf953f, #fcf6ba, #bf953f, transparent);
           animation: border-rotate 5s linear infinite;
-          opacity: 0.6;
+          opacity: 0.8;
         }
         .luxury-card {
           background: #001a33;
@@ -365,6 +365,16 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
           -webkit-text-fill-color: transparent;
           animation: lightning-pass 3s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
         }
+        .name-box {
+          position: relative;
+          padding: 12px 0;
+          width: 100%;
+          text-align: center;
+          background: rgba(0, 35, 102, 0.2);
+          backdrop-filter: blur(5px);
+          border-radius: 12px;
+          border: 1px solid rgba(191, 149, 63, 0.2);
+        }
       `}</style>
 
       {/* Hero Header */}
@@ -372,26 +382,30 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #bf953f 1px, transparent 0)', backgroundSize: '60px 60px' }}></div>
         <div className="max-w-4xl mx-auto relative z-10 flex flex-col items-center">
           
-          <div className="relative mb-12">
-            <div className="avatar-aura"></div>
-            <div className="w-44 h-44 md:w-60 md:h-60 rounded-full relative z-10 border-4 border-[#bf953f] shadow-[0_0_50px_rgba(191,149,63,0.3)] overflow-hidden bg-[#001a33]">
-              <img src={consultant.photoUrl} alt={consultant.name} className="w-full h-full object-cover" />
+          <div className="relative mb-12 flex flex-col items-center">
+            {/* Foto com Aura e Verificado Sobreposto */}
+            <div className="relative group">
+              <div className="avatar-aura"></div>
+              <div className="w-48 h-48 md:w-64 md:h-64 rounded-full relative z-10 border-4 border-[#bf953f] shadow-[0_0_60px_rgba(191,149,63,0.4)] overflow-hidden bg-[#001a33]">
+                <img src={consultant.photoUrl} alt={consultant.name} className="w-full h-full object-cover" />
+              </div>
+              <VerifiedBadge />
             </div>
-          </div>
 
-          <div className="flex items-center justify-center mb-10">
-            <div className="name-box rounded-lg">
-              <h2 className="font-cinzel text-5xl md:text-8xl font-black text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] tracking-tight flex items-center">
-                {consultant.name}
-                <VerifiedBadge />
-              </h2>
+            {/* Nome Alinhado Perfeitamente abaixo da Foto */}
+            <div className="mt-14 w-full max-w-2xl flex flex-col items-center">
+              <div className="name-box mb-8">
+                <h2 className="font-cinzel text-5xl md:text-8xl font-black text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] tracking-tight">
+                  {consultant.name}
+                </h2>
+              </div>
+              
+              <div className="inline-block px-16 py-4 border-t border-b border-[#bf953f]/40 bg-black/20 backdrop-blur-sm">
+                <span className="font-cinzel ray-text-effect text-2xl md:text-3xl font-black tracking-[0.5em] uppercase">
+                  {isFemale ? 'Consultora' : 'Consultor'} Especialista
+                </span>
+              </div>
             </div>
-          </div>
-
-          <div className="inline-block px-16 py-4 border-t border-b border-[#bf953f]/40 bg-black/20 backdrop-blur-sm">
-            <span className="font-cinzel ray-text-effect text-2xl md:text-3xl font-black tracking-[0.5em] uppercase">
-              {isFemale ? 'Consultora' : 'Consultor'} Especialista
-            </span>
           </div>
         </div>
       </div>
@@ -399,7 +413,7 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
       <main className="max-w-7xl mx-auto px-6 -mt-24 relative z-20">
         <div className="bg-[#001a33]/90 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 md:p-16 border border-[#bf953f]/20">
           
-          {/* Search with Elegant Typing Animation */}
+          {/* Search */}
           <div className="flex flex-col md:flex-row gap-6 mb-20">
             <div className="flex-1 relative">
               <div className="absolute left-8 top-1/2 -translate-y-1/2 font-cormorant italic text-xl pointer-events-none text-slate-400">
@@ -424,10 +438,7 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
           {/* Demos Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
             {displaySites.map(site => (
-              <div 
-                key={site.id} 
-                className="luxury-card rounded-2xl group flex flex-col h-full"
-              >
+              <div key={site.id} className="luxury-card rounded-2xl group flex flex-col h-full">
                 <div className="luxury-card-inner rounded-2xl flex flex-col h-full overflow-hidden">
                   <div className="aspect-[16/10] relative overflow-hidden bg-black/40">
                     <SiteMediaCarousel site={site} />
@@ -475,7 +486,7 @@ const ConsultantPage: React.FC<ConsultantPageProps> = ({ categories, sites, cons
         </div>
       </main>
 
-      {/* Modal Galeria Avançada */}
+      {/* Modal Galeria */}
       {isGalleryOpen && selectedSite && (
         <GalleryViewer 
           site={selectedSite} 
