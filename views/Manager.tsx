@@ -74,6 +74,7 @@ const Manager: React.FC<ManagerProps> = ({
   const [consultantForm, setConsultantForm] = useState({
     name: '',
     cpf: '',
+    whatsapp: '',
     photoUrl: '',
     photoPosition: '50% 50%'
   });
@@ -207,13 +208,11 @@ const Manager: React.FC<ManagerProps> = ({
         await onAddConsultant(consultantForm);
         alert("✅ Consultor CADASTRADO com sucesso!");
       }
-      // Limpa formulário após sucesso
-      setConsultantForm({ name: '', cpf: '', photoUrl: '', photoPosition: '50% 50%' });
+      setConsultantForm({ name: '', cpf: '', whatsapp: '', photoUrl: '', photoPosition: '50% 50%' });
       if (consultantFileRef.current) consultantFileRef.current.value = '';
     } catch (err: any) {
       console.error("Erro no Banco de Dados:", err);
-      // Alerta detalhado para o usuário
-      alert(`❌ FALHA AO SALVAR: ${err.message || 'Erro desconhecido.'}\n\nDica: Verifique se o CPF já existe ou se as tabelas foram criadas no SQL Editor.`);
+      alert(`❌ FALHA AO SALVAR: ${err.message || 'Erro desconhecido.'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -224,11 +223,20 @@ const Manager: React.FC<ManagerProps> = ({
     setConsultantForm({
       name: c.name,
       cpf: c.cpf,
+      whatsapp: c.whatsapp || '',
       photoUrl: c.photoUrl,
       photoPosition: c.photoPosition || '50% 50%'
     });
-    // Rola para o topo onde está o formulário
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const startEditSale = (acq: Acquisition) => {
+    setEditingSale(acq);
+    setSaleEditForm({
+      status: acq.status,
+      comment: acq.comment || '',
+      attachmentUrl: acq.attachmentUrl || ''
+    });
   };
 
   const handleSaleUpdateSubmit = async () => {
@@ -266,10 +274,81 @@ const Manager: React.FC<ManagerProps> = ({
     <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-['Inter']">
       
       {isSubmitting && (
-        <div className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-md flex items-center justify-center">
+        <div className="fixed inset-0 z-[2000] bg-black/40 backdrop-blur-md flex items-center justify-center">
           <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl flex items-center gap-4 animate-pulse">
              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
              <p className="font-black text-xs uppercase tracking-widest text-slate-900">Comunicando com o Banco...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição de Venda */}
+      {editingSale && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center p-6 animate-[fadeIn_0.3s]">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setEditingSale(null)}></div>
+          <div className="bg-white w-full max-w-2xl relative z-10 p-10 rounded-[3rem] shadow-2xl overflow-y-auto max-h-[90vh]">
+            <header className="mb-10 flex items-center justify-between">
+              <div>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Atualizar Venda</h3>
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">{editingSale.clientName}</p>
+              </div>
+              <button onClick={() => setEditingSale(null)} className="p-3 hover:bg-slate-100 rounded-full transition-all">
+                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </header>
+
+            <div className="space-y-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Status do Negócio</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {(['pending', 'processing', 'done'] as AcquisitionStatus[]).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setSaleEditForm({ ...saleEditForm, status: s })}
+                      className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 ${saleEditForm.status === s ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-200'}`}
+                    >
+                      {s === 'pending' ? 'Pendente' : s === 'processing' ? 'Em Produção' : 'Finalizado'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Comentários Internos</label>
+                <textarea 
+                  rows={4}
+                  className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:border-blue-600 font-medium text-slate-700 resize-none"
+                  placeholder="Descreva observações sobre o andamento..."
+                  value={saleEditForm.comment}
+                  onChange={(e) => setSaleEditForm({ ...saleEditForm, comment: e.target.value })}
+                ></textarea>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Anexo / Comprovante</label>
+                <input type="file" className="hidden" ref={saleFileRef} onChange={handleSaleFileChange} />
+                <div 
+                  onClick={() => saleFileRef.current?.click()}
+                  className="border-4 border-dashed border-slate-100 p-8 rounded-[2rem] text-center cursor-pointer hover:bg-slate-50 transition-all"
+                >
+                  {saleEditForm.attachmentUrl ? (
+                    <div className="space-y-4">
+                      <p className="text-[10px] font-black text-emerald-600 uppercase">Arquivo Anexado ✓</p>
+                      <button type="button" className="text-[9px] font-black text-blue-600 uppercase underline">Trocar arquivo</button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] font-black text-slate-300 uppercase">Clique para subir comprovante</p>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSaleUpdateSubmit}
+                className="w-full py-6 bg-slate-900 text-white rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl hover:bg-blue-600 transition-all active:scale-95"
+              >
+                Salvar Alterações
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -294,7 +373,7 @@ const Manager: React.FC<ManagerProps> = ({
           ].map((tab) => (
             <button 
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id as any); setEditingConsultantId(null); setConsultantForm({ name: '', cpf: '', photoUrl: '', photoPosition: '50% 50%' }); }}
+              onClick={() => { setActiveTab(tab.id as any); setEditingConsultantId(null); setConsultantForm({ name: '', cpf: '', whatsapp: '', photoUrl: '', photoPosition: '50% 50%' }); }}
               className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-2xl scale-105' : 'bg-white text-slate-400 border border-slate-200 hover:border-blue-200 hover:bg-slate-50'}`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={tab.icon}/></svg>
@@ -310,9 +389,6 @@ const Manager: React.FC<ManagerProps> = ({
                   <h2 className={`text-2xl font-black tracking-tight uppercase ${editingConsultantId ? 'text-blue-600' : 'text-slate-900'}`}>
                     {editingConsultantId ? 'Editando Consultor' : 'Novo Credenciamento'}
                   </h2>
-                  {editingConsultantId && (
-                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest animate-pulse">Modo Edição Ativo</span>
-                  )}
                 </div>
 
                 <form onSubmit={handleConsultantSubmit} className="space-y-6">
@@ -321,13 +397,19 @@ const Manager: React.FC<ManagerProps> = ({
                     <input type="text" placeholder="Nome do Consultor" className="w-full px-8 py-5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.name} onChange={(e) => setConsultantForm({ ...consultantForm, name: e.target.value })} />
                   </div>
                   
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">CPF (Somente Números)</label>
-                    <input type="text" placeholder="00000000000" className="w-full px-8 py-5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.cpf} onChange={(e) => setConsultantForm({ ...consultantForm, cpf: e.target.value.replace(/\D/g,'') })} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">CPF (Números)</label>
+                      <input type="text" placeholder="000.000.000-00" className="w-full px-8 py-5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.cpf} onChange={(e) => setConsultantForm({ ...consultantForm, cpf: e.target.value.replace(/\D/g,'') })} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">WhatsApp (Com DDD)</label>
+                      <input type="tel" placeholder="00000000000" className="w-full px-8 py-5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.whatsapp} onChange={(e) => setConsultantForm({ ...consultantForm, whatsapp: e.target.value.replace(/\D/g,'') })} />
+                    </div>
                   </div>
                   
                   <div className="space-y-4">
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Foto de Identificação (Clique na prévia para ajustar o foco)</label>
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Foto de Identificação</label>
                     <input type="file" accept="image/*" className="hidden" ref={consultantFileRef} onChange={handleConsultantFileChange} />
                     
                     <div onClick={() => !consultantForm.photoUrl && consultantFileRef.current?.click()} className={`border-4 border-dashed p-8 rounded-[2.5rem] text-center cursor-pointer transition-all ${consultantForm.photoUrl ? 'bg-white border-slate-100' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
@@ -353,19 +435,12 @@ const Manager: React.FC<ManagerProps> = ({
                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
                               <span className="text-white font-black text-[8px] uppercase">Arraste para ajustar</span>
                             </div>
-                            <div 
-                              className="absolute w-6 h-6 -ml-3 -mt-3 border-2 border-white rounded-full bg-blue-500/50 backdrop-blur-sm pointer-events-none"
-                              style={{ 
-                                left: consultantForm.photoPosition.split(' ')[0], 
-                                top: consultantForm.photoPosition.split(' ')[1] 
-                              }}
-                            />
                           </div>
                           <button type="button" onClick={() => consultantFileRef.current?.click()} className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline">Trocar Imagem</button>
                         </div>
                       ) : (
                         <div className="py-4">
-                           <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                           <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enviar Foto</p>
                         </div>
                       )}
@@ -376,7 +451,7 @@ const Manager: React.FC<ManagerProps> = ({
                     {editingConsultantId && (
                       <button 
                         type="button" 
-                        onClick={() => { setEditingConsultantId(null); setConsultantForm({ name: '', cpf: '', photoUrl: '', photoPosition: '50% 50%' }); }} 
+                        onClick={() => { setEditingConsultantId(null); setConsultantForm({ name: '', cpf: '', whatsapp: '', photoUrl: '', photoPosition: '50% 50%' }); }} 
                         className="flex-1 bg-slate-200 text-slate-500 py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-300 transition-all"
                       >
                         Cancelar
@@ -391,40 +466,26 @@ const Manager: React.FC<ManagerProps> = ({
 
              <div className="space-y-6 overflow-y-auto max-h-[800px] pr-2 scrollbar-hide">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Consultores Ativos ({consultants.length})</h3>
-                {consultants.length === 0 && (
-                  <div className="p-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                    <p className="text-slate-300 font-bold uppercase text-xs">Nenhum consultor encontrado.</p>
-                  </div>
-                )}
                 {consultants.map(c => (
                   <div key={c.id} className={`p-8 bg-white rounded-[3rem] border shadow-sm transition-all hover:shadow-2xl group relative overflow-hidden ${editingConsultantId === c.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-100'}`}>
                     <div className="flex items-center gap-6 mb-8">
                       <div className="w-20 h-20 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-50 relative">
                         <img src={c.photoUrl} className="w-full h-full object-cover" style={{ objectPosition: c.photoPosition }} />
-                        <button 
-                          onClick={() => startEditConsultant(c)}
-                          className="absolute inset-0 bg-blue-600/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
-                          title="Clique para Editar"
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                        </button>
                       </div>
                       <div className="flex-1">
                         <p className="font-black text-slate-900 uppercase tracking-tighter text-2xl leading-none mb-1">{c.name}</p>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Matrícula CPF: {c.cpf}</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">WhatsApp: {c.whatsapp || 'Não definido'}</p>
                       </div>
                       <div className="flex flex-col gap-2">
                         <button 
                           onClick={() => startEditConsultant(c)} 
                           className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                          title="Editar Cadastro"
                         >
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                         </button>
                         <button 
-                          onClick={() => { if(confirm('Excluir este consultor permanentemente?')) onDeleteConsultant(c.id).catch(e => alert(e.message)); }} 
+                          onClick={() => { if(confirm('Excluir este consultor permanentemente?')) onDeleteConsultant(c.id); }} 
                           className="p-3 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                          title="Remover Consultor"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
@@ -434,19 +495,9 @@ const Manager: React.FC<ManagerProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                       <button 
                         onClick={() => handleCopyLink(c.id)}
-                        className={`py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${copyStatus === c.id ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 shadow-sm'}`}
+                        className={`py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${copyStatus === c.id ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
-                        {copyStatus === c.id ? (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
-                            Copiado
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                            Link Público
-                          </>
-                        )}
+                        {copyStatus === c.id ? 'Copiado' : 'Link Público'}
                       </button>
                       <button 
                         onClick={() => navigate(`/consultant/${c.id}`)}
@@ -474,7 +525,7 @@ const Manager: React.FC<ManagerProps> = ({
                     value={catName}
                     onChange={(e) => setCatName(e.target.value)}
                   />
-                  <button type="submit" className="w-full bg-blue-600 text-white py-5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-100 active:scale-95 transition-all">
+                  <button type="submit" className="w-full bg-blue-600 text-white py-5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
                     Criar Categoria
                   </button>
                 </form>
@@ -509,91 +560,25 @@ const Manager: React.FC<ManagerProps> = ({
                   </div>
                   
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Capa Principal & Foco Visual (Clique e arraste na prévia)</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Capa Principal & Foco Visual</label>
                     <input type="file" accept="image/*,video/*" className="hidden" ref={siteFileRef} onChange={handleSiteFileChange} />
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                      <div onClick={() => siteFileRef.current?.click()} className="border-4 border-dashed border-slate-100 p-10 rounded-[2.5rem] text-center cursor-pointer hover:bg-slate-50 transition-all bg-slate-50/50 group">
-                        {siteForm.mediaUrl ? (
-                          <div className="relative inline-block">
-                            {siteForm.mediaType === 'video' ? <video src={siteForm.mediaUrl} className="h-24 rounded-2xl shadow-xl" /> : <img src={siteForm.mediaUrl} className="h-24 rounded-2xl shadow-xl" />}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-2xl transition-opacity">
-                              <span className="text-white font-black text-[9px] uppercase tracking-widest">Alterar</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Upload Capa</p>
-                        )}
+                      <div onClick={() => siteFileRef.current?.click()} className="border-4 border-dashed border-slate-100 p-10 rounded-[2.5rem] text-center cursor-pointer hover:bg-slate-50 transition-all bg-slate-50/50">
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Upload Capa</p>
                       </div>
-
                       {siteForm.mediaUrl && (
-                        <div className="space-y-4">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Ajuste de Posição (Arraste)</p>
-                          <div 
-                            ref={siteDragRef}
-                            className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 shadow-inner relative cursor-crosshair select-none"
-                            onMouseDown={() => setIsDraggingFocus(true)}
-                            onMouseUp={() => setIsDraggingFocus(false)}
-                            onMouseLeave={() => setIsDraggingFocus(false)}
-                            onMouseMove={(e) => isDraggingFocus && handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
-                            onTouchStart={() => setIsDraggingFocus(true)}
-                            onTouchEnd={() => setIsDraggingFocus(false)}
-                            onTouchMove={(e) => isDraggingFocus && handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
-                            onClick={(e) => handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
-                          >
-                            {siteForm.mediaType === 'video' ? (
-                              <video 
-                                src={siteForm.mediaUrl} 
-                                className="w-full h-full object-cover pointer-events-none" 
-                                style={{ objectPosition: siteForm.objectPosition }} 
-                                muted autoPlay loop 
-                              />
-                            ) : (
-                              <img 
-                                src={siteForm.mediaUrl} 
-                                className="w-full h-full object-cover pointer-events-none" 
-                                style={{ objectPosition: siteForm.objectPosition }} 
-                              />
-                            )}
-                            
-                            <div 
-                              className="absolute w-8 h-8 -ml-4 -mt-4 border-2 border-white rounded-full bg-blue-500/50 backdrop-blur-sm pointer-events-none"
-                              style={{ 
-                                left: siteForm.objectPosition.split(' ')[0], 
-                                top: siteForm.objectPosition.split(' ')[1] 
-                              }}
-                            >
-                              <div className="absolute inset-0 m-auto w-1 h-1 bg-white rounded-full"></div>
-                            </div>
-                          </div>
+                        <div 
+                          ref={siteDragRef}
+                          className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 shadow-inner relative cursor-crosshair select-none"
+                          onMouseDown={() => setIsDraggingFocus(true)}
+                          onMouseUp={() => setIsDraggingFocus(false)}
+                          onMouseLeave={() => setIsDraggingFocus(false)}
+                          onMouseMove={(e) => isDraggingFocus && handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
+                          onClick={(e) => handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
+                        >
+                          {siteForm.mediaType === 'video' ? <video src={siteForm.mediaUrl} className="w-full h-full object-cover pointer-events-none" style={{ objectPosition: siteForm.objectPosition }} muted autoPlay loop /> : <img src={siteForm.mediaUrl} className="w-full h-full object-cover pointer-events-none" style={{ objectPosition: siteForm.objectPosition }} />}
                         </div>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Galeria do Projeto (Múltiplas Fotos)</label>
-                    <input type="file" accept="image/*" multiple className="hidden" ref={galleryFileRef} onChange={handleGalleryFilesChange} />
-                    <div className="flex flex-wrap gap-4 mb-4">
-                      {siteForm.galleryUrls.map((url, idx) => (
-                        <div key={idx} className="relative group">
-                          <img src={url} className="w-24 h-24 rounded-xl object-cover border border-slate-200 shadow-sm" />
-                          <button 
-                            type="button" 
-                            onClick={() => removeGalleryImage(idx)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button 
-                        type="button" 
-                        onClick={() => galleryFileRef.current?.click()}
-                        className="w-24 h-24 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-xl flex items-center justify-center text-blue-400 hover:bg-blue-50 transition-all"
-                      >
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"/></svg>
-                      </button>
                     </div>
                   </div>
 
@@ -630,132 +615,101 @@ const Manager: React.FC<ManagerProps> = ({
           <div className="space-y-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none">Fluxo Comercial</h2>
-              <div className="bg-blue-600 text-white px-8 py-3 rounded-full text-[12px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-blue-200">
+              <div className="bg-blue-600 text-white px-8 py-3 rounded-full text-[12px] font-black uppercase tracking-[0.2em]">
                 {filteredAcquisitions.length} Negócios Registrados
               </div>
             </div>
 
             <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col md:flex-row flex-wrap gap-6 items-end">
               <div className="flex-1 min-w-[280px] w-full">
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 px-3">Localizar Venda (Nome, CPF ou Site)</label>
-                <div className="relative">
-                  <svg className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                  <input 
-                    type="text" 
-                    placeholder="Pesquisa rápida..."
-                    className="w-full pl-14 pr-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-[1.5rem] outline-none focus:border-blue-600 font-bold text-slate-700 shadow-inner"
-                    value={saleSearchQuery}
-                    onChange={(e) => setSaleSearchQuery(e.target.value)}
-                  />
-                </div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 px-3">Localizar Venda</label>
+                <input 
+                  type="text" 
+                  placeholder="Nome, CPF ou Site..."
+                  className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-[1.5rem] outline-none focus:border-blue-600 font-bold"
+                  value={saleSearchQuery}
+                  onChange={(e) => setSaleSearchQuery(e.target.value)}
+                />
               </div>
-
-              <div className="w-full md:w-auto min-w-[220px]">
+              <div className="w-full md:w-auto">
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 px-3">Status</label>
                 <select 
-                  className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-[1.5rem] outline-none focus:border-blue-600 font-black text-[10px] uppercase tracking-widest text-slate-700 shadow-inner cursor-pointer"
+                  className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-[1.5rem] outline-none focus:border-blue-600 font-black text-[10px] uppercase"
                   value={saleStatusFilter}
                   onChange={(e) => setSaleStatusFilter(e.target.value as any)}
                 >
-                  <option value="all">Todos Status</option>
-                  <option value="pending">Pendentes</option>
+                  <option value="all">Todos</option>
+                  <option value="pending">Pendente</option>
                   <option value="processing">Processando</option>
-                  <option value="done">Finalizados</option>
+                  <option value="done">Finalizado</option>
                 </select>
-              </div>
-
-              <div className="w-full md:w-auto">
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 px-3">Filtrar por Data</label>
-                <input 
-                  type="date" 
-                  className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-[1.5rem] outline-none focus:border-blue-600 font-black text-[10px] uppercase tracking-widest text-slate-700 shadow-inner"
-                  value={saleDateFilter}
-                  onChange={(e) => setSaleDateFilter(e.target.value)}
-                />
               </div>
             </div>
             
             <div className="grid grid-cols-1 gap-8">
               {filteredAcquisitions.map(acq => (
-                <div key={acq.id} className="p-8 md:p-12 bg-white rounded-[4rem] border border-slate-100 shadow-2xl flex flex-col gap-8 transition-all hover:translate-y-[-4px] group overflow-hidden">
-                  <div className="flex flex-col lg:flex-row justify-between gap-10">
-                    {/* Main Info */}
-                    <div className="flex-1 space-y-6">
-                      <div className="flex flex-wrap items-center gap-3">
-                         <span className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${acq.status === 'pending' ? 'bg-amber-100 text-amber-700' : acq.status === 'processing' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                           {acq.status === 'pending' ? '• Aguardando' : acq.status === 'processing' ? '• Em Produção' : '• Finalizado'}
-                         </span>
-                         <span className="bg-slate-900 text-white px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">{acq.siteTitle}</span>
-                         <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest ml-auto">{new Date(acq.timestamp).toLocaleDateString()} às {new Date(acq.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                      
-                      <h4 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">{acq.clientName}</h4>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-500 font-bold uppercase text-[10px] tracking-widest bg-slate-50 p-6 rounded-3xl">
-                         <div className="flex flex-col gap-1">
-                           <span className="text-slate-300 text-[8px]">CPF DO CLIENTE</span>
-                           <span className="text-slate-700">{acq.clientCpf}</span>
-                         </div>
-                         <div className="flex flex-col gap-1">
-                           <span className="text-slate-300 text-[8px]">WHATSAPP</span>
-                           <span className="text-slate-700">{acq.clientPhone}</span>
-                         </div>
-                         <div className="flex flex-col gap-1 sm:col-span-2">
-                           <span className="text-slate-300 text-[8px]">CONSULTOR RESPONSÁVEL</span>
-                           <span className="text-slate-700">{consultants.find(c => c.id === acq.consultantId)?.name || 'N/A'}</span>
-                         </div>
-                      </div>
-
-                      {acq.comment && (
-                        <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
-                          <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-2">Comentário Interno</p>
-                          <p className="text-xs text-blue-900 font-medium italic">"{acq.comment}"</p>
-                        </div>
-                      )}
+                <div key={acq.id} className="p-8 md:p-12 bg-white rounded-[4rem] border border-slate-100 shadow-2xl flex flex-col lg:flex-row justify-between gap-10 relative overflow-hidden">
+                  <div className="flex-1 space-y-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                       <span className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${acq.status === 'pending' ? 'bg-amber-100 text-amber-700' : acq.status === 'processing' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                         {acq.status === 'pending' ? '• Aguardando' : acq.status === 'processing' ? '• Em Produção' : '• Finalizado'}
+                       </span>
+                       <span className="bg-slate-900 text-white px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest">{acq.siteTitle}</span>
                     </div>
+                    <h4 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">{acq.clientName}</h4>
+                    
+                    {acq.comment && (
+                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 italic text-slate-500 text-sm">
+                        "{acq.comment}"
+                      </div>
+                    )}
 
-                    {/* Actions */}
-                    <div className="flex flex-col gap-3 w-full lg:w-64">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-500 font-bold uppercase text-[10px] tracking-widest bg-slate-50 p-6 rounded-3xl">
+                       <div className="flex flex-col gap-1">
+                         <span className="text-slate-300 text-[8px]">CPF DO CLIENTE</span>
+                         <span className="text-slate-700">{acq.clientCpf}</span>
+                       </div>
+                       <div className="flex flex-col gap-1">
+                         <span className="text-slate-300 text-[8px]">WHATSAPP</span>
+                         <span className="text-slate-700">{acq.clientPhone}</span>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 w-full lg:w-64">
+                    <button 
+                      onClick={() => startEditSale(acq)}
+                      className="bg-white border-2 border-slate-900 text-slate-900 py-4 rounded-2xl hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <span className="font-black text-[9px] uppercase tracking-widest">Editar Registro</span>
+                    </button>
+                    <button 
+                      onClick={() => window.open(`https://wa.me/55${acq.clientPhone.replace(/\D/g,'')}`, '_blank')}
+                      className="bg-[#25D366] text-white py-4 rounded-2xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-xl"
+                    >
+                      <span className="font-black text-[9px] uppercase tracking-widest">WhatsApp</span>
+                    </button>
+                    {acq.location && (
                       <button 
-                        onClick={() => window.open(`https://wa.me/55${acq.clientPhone.replace(/\D/g,'')}`, '_blank')}
-                        className="bg-[#25D366] text-white py-4 rounded-2xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-xl"
+                        onClick={() => window.open(`https://www.google.com/maps?q=${acq.location?.latitude},${acq.location?.longitude}`, '_blank')}
+                        className="bg-slate-900 text-white py-4 rounded-2xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
                       >
-                        <span className="font-black text-[9px] uppercase tracking-widest">WhatsApp</span>
+                        <span className="font-black text-[9px] uppercase tracking-widest">Ver Localização</span>
                       </button>
-
-                      {acq.location && (
-                        <button 
-                          onClick={() => window.open(`https://www.google.com/maps?q=${acq.location?.latitude},${acq.location?.longitude}`, '_blank')}
-                          className="bg-slate-900 text-white py-4 rounded-2xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-xl"
-                        >
-                          <span className="font-black text-[9px] uppercase tracking-widest">Ver Localização</span>
-                        </button>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <button 
-                          onClick={() => {
-                            setEditingSale(acq);
-                            setSaleEditForm({
-                              status: acq.status,
-                              comment: acq.comment || '',
-                              attachmentUrl: acq.attachmentUrl || ''
-                            });
-                          }}
-                          className="py-3 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all"
-                        >
-                          Editar
-                        </button>
-                        <button 
-                          onClick={() => {
-                            if(confirm(`Excluir permanentemente o registro de ${acq.clientName}?`)) onDeleteAcquisition(acq.id).catch(e => alert(e.message));
-                          }}
-                          className="py-3 bg-white border border-slate-200 text-slate-400 hover:text-red-600 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all"
-                        >
-                          Apagar
-                        </button>
-                      </div>
-                    </div>
+                    )}
+                    {acq.attachmentUrl && (
+                      <button 
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = acq.attachmentUrl!;
+                          link.download = `comprovante-${acq.clientName.replace(/\s+/g, '-')}.png`;
+                          link.click();
+                        }}
+                        className="bg-slate-100 text-slate-600 py-4 rounded-2xl hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                      >
+                        <span className="font-black text-[9px] uppercase tracking-widest">Baixar Anexo</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -763,7 +717,6 @@ const Manager: React.FC<ManagerProps> = ({
           </div>
         )}
       </div>
-      <footer className="mt-20 py-10 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.5em]">TUPÃ Management • High Performance</footer>
     </div>
   );
 };

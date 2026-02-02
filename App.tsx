@@ -39,7 +39,8 @@ const App: React.FC = () => {
       if (cons) setConsultants(cons.map(c => ({
         ...c,
         photoUrl: c.photo_url,
-        photoPosition: c.photo_position || '50% 50%'
+        photoPosition: c.photo_position || '50% 50%',
+        whatsapp: c.whatsapp
       })));
       if (acqs) setAcquisitions(acqs.map(a => ({
         ...a,
@@ -113,6 +114,7 @@ const App: React.FC = () => {
     const { error } = await supabase.from('consultants').insert([{
       name: consultant.name,
       cpf: consultant.cpf,
+      whatsapp: consultant.whatsapp,
       photo_url: consultant.photoUrl,
       photo_position: consultant.photoPosition
     }]);
@@ -123,6 +125,7 @@ const App: React.FC = () => {
     const { error } = await supabase.from('consultants').update({
       name: consultant.name,
       cpf: consultant.cpf,
+      whatsapp: consultant.whatsapp,
       photo_url: consultant.photoUrl,
       photo_position: consultant.photoPosition
     }).eq('id', id);

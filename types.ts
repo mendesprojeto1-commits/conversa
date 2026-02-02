@@ -20,8 +20,9 @@ export interface Consultant {
   id: string;
   name: string;
   cpf: string;
+  whatsapp?: string;
   photoUrl: string;
-  photoPosition?: string; // Novo campo para ajuste de foco da foto do consultor
+  photoPosition?: string;
 }
 
 export type AcquisitionStatus = 'pending' | 'processing' | 'done';
