@@ -13,7 +13,7 @@ export interface DemoSite {
   categoryId: string;
   description: string;
   galleryUrls?: string[];
-  objectPosition?: string; // Novo campo para ajuste de foco (top, center, bottom)
+  objectPosition?: string;
 }
 
 export interface Consultant {
@@ -21,6 +21,7 @@ export interface Consultant {
   name: string;
   cpf: string;
   photoUrl: string;
+  photoPosition?: string; // Novo campo para ajuste de foco da foto do consultor
 }
 
 export type AcquisitionStatus = 'pending' | 'processing' | 'done';

@@ -54,7 +54,8 @@ const Manager: React.FC<ManagerProps> = ({
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const consultantFileRef = useRef<HTMLInputElement>(null);
   const saleFileRef = useRef<HTMLInputElement>(null);
-  const dragRef = useRef<HTMLDivElement>(null);
+  const siteDragRef = useRef<HTMLDivElement>(null);
+  const consultantDragRef = useRef<HTMLDivElement>(null);
 
   const [siteForm, setSiteForm] = useState({
     title: '',
@@ -64,16 +65,18 @@ const Manager: React.FC<ManagerProps> = ({
     categoryId: '',
     description: '',
     galleryUrls: [] as string[],
-    objectPosition: '50% 50%' // Using percentage for dragging
+    objectPosition: '50% 50%'
   });
-
-  const [isDraggingFocus, setIsDraggingFocus] = useState(false);
 
   const [consultantForm, setConsultantForm] = useState({
     name: '',
     cpf: '',
-    photoUrl: ''
+    photoUrl: '',
+    photoPosition: '50% 50%'
   });
+
+  const [isDraggingFocus, setIsDraggingFocus] = useState(false);
+  const [isDraggingConsultantFocus, setIsDraggingConsultantFocus] = useState(false);
 
   const handleCopyLink = (id: string) => {
     const url = `${window.location.origin}/#/consultant/${id}`;
@@ -100,19 +103,16 @@ const Manager: React.FC<ManagerProps> = ({
     }
   };
 
-  const handleDragPosition = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!dragRef.current) return;
-    const rect = dragRef.current.getBoundingClientRect();
+  const handleDragPosition = (e: React.MouseEvent | React.TouchEvent, ref: React.RefObject<HTMLDivElement>, setter: (pos: string) => void) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
     const xPercent = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
     const yPercent = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
 
-    setSiteForm(prev => ({
-      ...prev,
-      objectPosition: `${Math.round(xPercent)}% ${Math.round(yPercent)}%`
-    }));
+    setter(`${Math.round(xPercent)}% ${Math.round(yPercent)}%`);
   };
 
   const handleGalleryFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,7 +138,7 @@ const Manager: React.FC<ManagerProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const base64 = await fileToBase64(file);
-      setConsultantForm(prev => ({ ...prev, photoUrl: base64 }));
+      setConsultantForm(prev => ({ ...prev, photoUrl: base64, photoPosition: '50% 50%' }));
     }
   };
 
@@ -182,7 +182,7 @@ const Manager: React.FC<ManagerProps> = ({
     if (consultantForm.name && consultantForm.cpf && consultantForm.photoUrl) {
       setIsSubmitting(true);
       await onAddConsultant(consultantForm);
-      setConsultantForm({ name: '', cpf: '', photoUrl: '' });
+      setConsultantForm({ name: '', cpf: '', photoUrl: '', photoPosition: '50% 50%' });
       if (consultantFileRef.current) consultantFileRef.current.value = '';
       setIsSubmitting(false);
     }
@@ -392,16 +392,16 @@ const Manager: React.FC<ManagerProps> = ({
                         <div className="space-y-4">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Ajuste de Posição (Arraste)</p>
                           <div 
-                            ref={dragRef}
+                            ref={siteDragRef}
                             className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 shadow-inner relative cursor-crosshair select-none"
                             onMouseDown={() => setIsDraggingFocus(true)}
                             onMouseUp={() => setIsDraggingFocus(false)}
                             onMouseLeave={() => setIsDraggingFocus(false)}
-                            onMouseMove={(e) => isDraggingFocus && handleDragPosition(e)}
+                            onMouseMove={(e) => isDraggingFocus && handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
                             onTouchStart={() => setIsDraggingFocus(true)}
                             onTouchEnd={() => setIsDraggingFocus(false)}
-                            onTouchMove={(e) => isDraggingFocus && handleDragPosition(e)}
-                            onClick={handleDragPosition}
+                            onTouchMove={(e) => isDraggingFocus && handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
+                            onClick={(e) => handleDragPosition(e, siteDragRef, (p) => setSiteForm(prev => ({ ...prev, objectPosition: p })))}
                           >
                             {siteForm.mediaType === 'video' ? (
                               <video 
@@ -418,7 +418,6 @@ const Manager: React.FC<ManagerProps> = ({
                               />
                             )}
                             
-                            {/* Focus Marker */}
                             <div 
                               className="absolute w-8 h-8 -ml-4 -mt-4 border-2 border-white rounded-full bg-blue-500/50 backdrop-blur-sm pointer-events-none"
                               style={{ 
@@ -428,9 +427,6 @@ const Manager: React.FC<ManagerProps> = ({
                             >
                               <div className="absolute inset-0 m-auto w-1 h-1 bg-white rounded-full"></div>
                             </div>
-                          </div>
-                          <div className="px-2 text-[9px] font-bold text-blue-500 uppercase tracking-widest text-center">
-                            Foco atual: {siteForm.objectPosition}
                           </div>
                         </div>
                       )}
@@ -499,17 +495,47 @@ const Manager: React.FC<ManagerProps> = ({
                 <form onSubmit={handleConsultantSubmit} className="space-y-6">
                   <input type="text" placeholder="Nome do Consultor" className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.name} onChange={(e) => setConsultantForm({ ...consultantForm, name: e.target.value })} />
                   <input type="text" placeholder="CPF" className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:border-blue-600 font-bold" value={consultantForm.cpf} onChange={(e) => setConsultantForm({ ...consultantForm, cpf: e.target.value })} />
-                  <div onClick={() => consultantFileRef.current?.click()} className="border-4 border-dashed border-slate-100 p-12 rounded-[2.5rem] text-center cursor-pointer bg-slate-50/50 hover:bg-slate-100 transition-all">
+                  
+                  <div className="space-y-4">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Foto de Identificação & Foco (Arraste para ajustar)</label>
                     <input type="file" accept="image/*" className="hidden" ref={consultantFileRef} onChange={handleConsultantFileChange} />
-                    {consultantForm.photoUrl ? (
-                      <div className="relative inline-block">
-                        <img src={consultantForm.photoUrl} className="h-32 w-32 rounded-full mx-auto border-8 border-white shadow-2xl object-cover" />
-                        <span className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full shadow-lg"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></span>
-                      </div>
-                    ) : (
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Foto de Identificação</p>
-                    )}
+                    
+                    <div onClick={() => !consultantForm.photoUrl && consultantFileRef.current?.click()} className={`border-4 border-dashed border-slate-100 p-8 rounded-[2.5rem] text-center cursor-pointer transition-all ${consultantForm.photoUrl ? 'bg-white' : 'bg-slate-50/50 hover:bg-slate-100'}`}>
+                      {consultantForm.photoUrl ? (
+                        <div className="space-y-6">
+                          <div 
+                            ref={consultantDragRef}
+                            className="w-48 h-48 rounded-full mx-auto border-4 border-slate-100 shadow-2xl overflow-hidden relative cursor-crosshair select-none"
+                            onMouseDown={() => setIsDraggingConsultantFocus(true)}
+                            onMouseUp={() => setIsDraggingConsultantFocus(false)}
+                            onMouseLeave={() => setIsDraggingConsultantFocus(false)}
+                            onMouseMove={(e) => isDraggingConsultantFocus && handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
+                            onTouchStart={() => setIsDraggingConsultantFocus(true)}
+                            onTouchEnd={() => setIsDraggingConsultantFocus(false)}
+                            onTouchMove={(e) => isDraggingConsultantFocus && handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
+                            onClick={(e) => handleDragPosition(e, consultantDragRef, (p) => setConsultantForm(prev => ({ ...prev, photoPosition: p })))}
+                          >
+                            <img 
+                              src={consultantForm.photoUrl} 
+                              className="w-full h-full object-cover pointer-events-none" 
+                              style={{ objectPosition: consultantForm.photoPosition }} 
+                            />
+                            <div 
+                              className="absolute w-6 h-6 -ml-3 -mt-3 border-2 border-white rounded-full bg-blue-500/50 backdrop-blur-sm pointer-events-none"
+                              style={{ 
+                                left: consultantForm.photoPosition.split(' ')[0], 
+                                top: consultantForm.photoPosition.split(' ')[1] 
+                              }}
+                            />
+                          </div>
+                          <button type="button" onClick={() => consultantFileRef.current?.click()} className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline">Trocar Foto</button>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clique para subir foto</p>
+                      )}
+                    </div>
                   </div>
+
                   <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-xl hover:bg-blue-600 transition-all">Salvar Credenciamento</button>
                 </form>
              </section>
@@ -519,7 +545,7 @@ const Manager: React.FC<ManagerProps> = ({
                   <div key={c.id} className="p-8 bg-white rounded-[3rem] border border-slate-100 shadow-sm transition-all hover:shadow-2xl group relative overflow-hidden">
                     <div className="flex items-center gap-6 mb-8">
                       <div className="w-20 h-20 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-50">
-                        <img src={c.photoUrl} className="w-full h-full object-cover" />
+                        <img src={c.photoUrl} className="w-full h-full object-cover" style={{ objectPosition: c.photoPosition }} />
                       </div>
                       <div className="flex-1">
                         <p className="font-black text-slate-900 uppercase tracking-tighter text-2xl leading-none mb-1">{c.name}</p>

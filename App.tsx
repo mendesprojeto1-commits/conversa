@@ -31,11 +31,12 @@ const App: React.FC = () => {
         mediaUrl: s.media_url,
         mediaType: s.media_type,
         galleryUrls: s.gallery_urls || [],
-        objectPosition: s.object_position || 'center'
+        objectPosition: s.object_position || '50% 50%'
       })));
       if (cons) setConsultants(cons.map(c => ({
         ...c,
-        photoUrl: c.photo_url
+        photoUrl: c.photo_url,
+        photoPosition: c.photo_position || '50% 50%'
       })));
       if (acqs) setAcquisitions(acqs.map(a => ({
         ...a,
@@ -101,7 +102,8 @@ const App: React.FC = () => {
     await supabase.from('consultants').insert([{
       name: consultant.name,
       cpf: consultant.cpf,
-      photo_url: consultant.photoUrl
+      photo_url: consultant.photoUrl,
+      photo_position: consultant.photoPosition
     }]);
   };
 
