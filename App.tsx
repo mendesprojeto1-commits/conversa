@@ -30,7 +30,8 @@ const App: React.FC = () => {
         categoryId: s.category_id,
         mediaUrl: s.media_url,
         mediaType: s.media_type,
-        galleryUrls: s.gallery_urls || []
+        galleryUrls: s.gallery_urls || [],
+        objectPosition: s.object_position || 'center'
       })));
       if (cons) setConsultants(cons.map(c => ({
         ...c,
@@ -74,7 +75,8 @@ const App: React.FC = () => {
       media_type: site.mediaType,
       category_id: site.categoryId,
       description: site.description,
-      gallery_urls: site.galleryUrls
+      gallery_urls: site.galleryUrls,
+      object_position: site.objectPosition
     }]);
   };
 
@@ -86,7 +88,8 @@ const App: React.FC = () => {
       media_type: site.mediaType,
       category_id: site.categoryId,
       description: site.description,
-      gallery_urls: site.galleryUrls
+      gallery_urls: site.galleryUrls,
+      object_position: site.objectPosition
     }).eq('id', id);
   };
 

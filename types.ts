@@ -12,7 +12,8 @@ export interface DemoSite {
   mediaType: 'image' | 'video';
   categoryId: string;
   description: string;
-  galleryUrls?: string[]; // Novo campo para múltiplas fotos
+  galleryUrls?: string[];
+  objectPosition?: string; // Novo campo para ajuste de foco (top, center, bottom)
 }
 
 export interface Consultant {

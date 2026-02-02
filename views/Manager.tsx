@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Category, DemoSite, Consultant, Acquisition, AcquisitionStatus } from '../types';
 
@@ -54,6 +54,7 @@ const Manager: React.FC<ManagerProps> = ({
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const consultantFileRef = useRef<HTMLInputElement>(null);
   const saleFileRef = useRef<HTMLInputElement>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
 
   const [siteForm, setSiteForm] = useState({
     title: '',
@@ -62,8 +63,11 @@ const Manager: React.FC<ManagerProps> = ({
     mediaType: 'image' as 'image' | 'video',
     categoryId: '',
     description: '',
-    galleryUrls: [] as string[]
+    galleryUrls: [] as string[],
+    objectPosition: '50% 50%' // Using percentage for dragging
   });
+
+  const [isDraggingFocus, setIsDraggingFocus] = useState(false);
 
   const [consultantForm, setConsultantForm] = useState({
     name: '',
@@ -92,8 +96,23 @@ const Manager: React.FC<ManagerProps> = ({
     if (file) {
       const base64 = await fileToBase64(file);
       const isVideo = file.type.startsWith('video/');
-      setSiteForm(prev => ({ ...prev, mediaUrl: base64, mediaType: isVideo ? 'video' : 'image' }));
+      setSiteForm(prev => ({ ...prev, mediaUrl: base64, mediaType: isVideo ? 'video' : 'image', objectPosition: '50% 50%' }));
     }
+  };
+
+  const handleDragPosition = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!dragRef.current) return;
+    const rect = dragRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const xPercent = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const yPercent = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+
+    setSiteForm(prev => ({
+      ...prev,
+      objectPosition: `${Math.round(xPercent)}% ${Math.round(yPercent)}%`
+    }));
   };
 
   const handleGalleryFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,7 +170,7 @@ const Manager: React.FC<ManagerProps> = ({
       } else {
         await onAddSite(siteForm);
       }
-      setSiteForm({ title: '', link: '', mediaUrl: '', mediaType: 'image', categoryId: '', description: '', galleryUrls: [] });
+      setSiteForm({ title: '', link: '', mediaUrl: '', mediaType: 'image', categoryId: '', description: '', galleryUrls: [], objectPosition: '50% 50%' });
       if (siteFileRef.current) siteFileRef.current.value = '';
       if (galleryFileRef.current) galleryFileRef.current.value = '';
       setIsSubmitting(false);
@@ -207,7 +226,7 @@ const Manager: React.FC<ManagerProps> = ({
         </div>
       )}
 
-      {/* Modal de Edição de Venda */}
+      {/* Modal Sale Edit */}
       {editingSale && (
         <div className="fixed inset-0 z-[800] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 animate-[fadeIn_0.3s]">
           <div className="bg-white w-full max-w-xl rounded-[3rem] p-10 shadow-2xl animate-[scaleUp_0.3s] max-h-[90vh] overflow-y-auto">
@@ -352,18 +371,68 @@ const Manager: React.FC<ManagerProps> = ({
                   </div>
                   
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Capa Principal</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Capa Principal & Foco Visual (Clique e arraste na prévia)</label>
                     <input type="file" accept="image/*,video/*" className="hidden" ref={siteFileRef} onChange={handleSiteFileChange} />
-                    <div onClick={() => siteFileRef.current?.click()} className="border-4 border-dashed border-slate-100 p-10 rounded-[2.5rem] text-center cursor-pointer hover:bg-slate-50 transition-all bg-slate-50/50 group">
-                      {siteForm.mediaUrl ? (
-                         <div className="relative inline-block">
-                           {siteForm.mediaType === 'video' ? <video src={siteForm.mediaUrl} className="h-24 rounded-2xl shadow-xl" /> : <img src={siteForm.mediaUrl} className="h-24 rounded-2xl shadow-xl" />}
-                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-2xl transition-opacity">
-                             <span className="text-white font-black text-[9px] uppercase tracking-widest">Alterar</span>
-                           </div>
-                         </div>
-                      ) : (
-                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Upload Capa</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <div onClick={() => siteFileRef.current?.click()} className="border-4 border-dashed border-slate-100 p-10 rounded-[2.5rem] text-center cursor-pointer hover:bg-slate-50 transition-all bg-slate-50/50 group">
+                        {siteForm.mediaUrl ? (
+                          <div className="relative inline-block">
+                            {siteForm.mediaType === 'video' ? <video src={siteForm.mediaUrl} className="h-24 rounded-2xl shadow-xl" /> : <img src={siteForm.mediaUrl} className="h-24 rounded-2xl shadow-xl" />}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-2xl transition-opacity">
+                              <span className="text-white font-black text-[9px] uppercase tracking-widest">Alterar</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Upload Capa</p>
+                        )}
+                      </div>
+
+                      {siteForm.mediaUrl && (
+                        <div className="space-y-4">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Ajuste de Posição (Arraste)</p>
+                          <div 
+                            ref={dragRef}
+                            className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 shadow-inner relative cursor-crosshair select-none"
+                            onMouseDown={() => setIsDraggingFocus(true)}
+                            onMouseUp={() => setIsDraggingFocus(false)}
+                            onMouseLeave={() => setIsDraggingFocus(false)}
+                            onMouseMove={(e) => isDraggingFocus && handleDragPosition(e)}
+                            onTouchStart={() => setIsDraggingFocus(true)}
+                            onTouchEnd={() => setIsDraggingFocus(false)}
+                            onTouchMove={(e) => isDraggingFocus && handleDragPosition(e)}
+                            onClick={handleDragPosition}
+                          >
+                            {siteForm.mediaType === 'video' ? (
+                              <video 
+                                src={siteForm.mediaUrl} 
+                                className="w-full h-full object-cover pointer-events-none" 
+                                style={{ objectPosition: siteForm.objectPosition }} 
+                                muted autoPlay loop 
+                              />
+                            ) : (
+                              <img 
+                                src={siteForm.mediaUrl} 
+                                className="w-full h-full object-cover pointer-events-none" 
+                                style={{ objectPosition: siteForm.objectPosition }} 
+                              />
+                            )}
+                            
+                            {/* Focus Marker */}
+                            <div 
+                              className="absolute w-8 h-8 -ml-4 -mt-4 border-2 border-white rounded-full bg-blue-500/50 backdrop-blur-sm pointer-events-none"
+                              style={{ 
+                                left: siteForm.objectPosition.split(' ')[0], 
+                                top: siteForm.objectPosition.split(' ')[1] 
+                              }}
+                            >
+                              <div className="absolute inset-0 m-auto w-1 h-1 bg-white rounded-full"></div>
+                            </div>
+                          </div>
+                          <div className="px-2 text-[9px] font-bold text-blue-500 uppercase tracking-widest text-center">
+                            Foco atual: {siteForm.objectPosition}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -413,7 +482,7 @@ const Manager: React.FC<ManagerProps> = ({
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <button onClick={() => { window.scrollTo({top: 0, behavior: 'smooth'}); setEditingSiteId(s.id); setSiteForm({...s, galleryUrls: s.galleryUrls || []}); }} className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600">Editar</button>
+                      <button onClick={() => { window.scrollTo({top: 0, behavior: 'smooth'}); setEditingSiteId(s.id); setSiteForm({...s, galleryUrls: s.galleryUrls || [], objectPosition: s.objectPosition || '50% 50%'}); }} className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600">Editar</button>
                       <button onClick={() => { if(confirm('Excluir demo?')) onDeleteSite(s.id); }} className="text-[9px] font-black uppercase tracking-widest text-red-300 hover:text-red-500">Excluir</button>
                     </div>
                   </div>
@@ -542,7 +611,7 @@ const Manager: React.FC<ManagerProps> = ({
               {filteredAcquisitions.map(acq => (
                 <div key={acq.id} className="p-8 md:p-12 bg-white rounded-[4rem] border border-slate-100 shadow-2xl flex flex-col gap-8 transition-all hover:translate-y-[-4px] group overflow-hidden">
                   <div className="flex flex-col lg:flex-row justify-between gap-10">
-                    {/* Informações Principais */}
+                    {/* Main Info */}
                     <div className="flex-1 space-y-6">
                       <div className="flex flex-wrap items-center gap-3">
                          <span className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${acq.status === 'pending' ? 'bg-amber-100 text-amber-700' : acq.status === 'processing' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
@@ -577,13 +646,12 @@ const Manager: React.FC<ManagerProps> = ({
                       )}
                     </div>
 
-                    {/* Ações Verticais */}
+                    {/* Actions */}
                     <div className="flex flex-col gap-3 w-full lg:w-64">
                       <button 
                         onClick={() => window.open(`https://wa.me/55${acq.clientPhone.replace(/\D/g,'')}`, '_blank')}
                         className="bg-[#25D366] text-white py-4 rounded-2xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-xl"
                       >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.025 3.14l-.905 3.307 3.385-.888c.828.45 1.485.657 2.263.658 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.586-5.766-5.768-5.766zm3.28 8.135c-.145.408-.847.741-1.164.787-.317.045-.698.075-1.163-.074-.242-.077-.557-.19-1.203-.467-1.745-.749-2.874-2.533-2.961-2.647-.087-.115-.714-.95-.714-1.813 0-.863.453-1.288.614-1.46.161-.173.351-.215.468-.215.117 0 .234.001.336.006.106.005.249-.04.391.299.144.344.491 1.196.534 1.284.043.089.072.191.014.306-.058.115-.087.19-.174.288-.087.1-.184.223-.263.3-.087.086-.177.18-.076.353.101.173.448.74 0.96 1.196.659.585 1.215.767 1.388.854.173.086.274.072.375-.043.101-.115.432-.504.548-.677.116-.172.23-.144.389-.086.158.058 1.008.475 1.181.562.173.086.288.13.331.201.043.072.043.414-.102.822z"/></svg>
                         <span className="font-black text-[9px] uppercase tracking-widest">WhatsApp</span>
                       </button>
 
@@ -592,7 +660,6 @@ const Manager: React.FC<ManagerProps> = ({
                           onClick={() => window.open(`https://www.google.com/maps?q=${acq.location?.latitude},${acq.location?.longitude}`, '_blank')}
                           className="bg-slate-900 text-white py-4 rounded-2xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-xl"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                           <span className="font-black text-[9px] uppercase tracking-widest">Ver Localização</span>
                         </button>
                       )}
@@ -624,14 +691,11 @@ const Manager: React.FC<ManagerProps> = ({
                   </div>
                 </div>
               ))}
-              {filteredAcquisitions.length === 0 && (
-                <div className="py-20 text-center opacity-30 text-slate-300 font-black uppercase text-sm">Nenhum registro encontrado para estes filtros</div>
-              )}
             </div>
           </div>
         )}
       </div>
-      <footer className="mt-20 py-10 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.5em]">TUPÃ Management • High Performance Instance</footer>
+      <footer className="mt-20 py-10 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.5em]">TUPÃ Management • High Performance</footer>
     </div>
   );
 };
